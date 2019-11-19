@@ -57,11 +57,11 @@ var vm = new Vue({
         },
         // 检查用户名
         check_username: function () {
-            var re = /^[a-zA-Z0-9_-]{5,20}$/;
+            var re = /^[a-zA-Z][a-zA-Z0-9_-]{5,20}$/;
             if (re.test(this.username)) {
                 this.error_name = false;
             } else {
-                this.error_name_message = '请输入5-20个字符的用户名';
+                this.error_name_message = '请输入5-20个字符的用户名（字母开头）';
                 this.error_name = true;
             }
             // 检查重名
