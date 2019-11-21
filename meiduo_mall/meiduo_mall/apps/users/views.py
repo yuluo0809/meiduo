@@ -1,8 +1,9 @@
-from django.shortcuts import render
+from django.shortcuts import render, redirect, reverse
 from django.views import View
 from django import http
 import re
 from .models import *
+from django.contrib.auth import login
 
 
 class RegisterView(View):
@@ -44,6 +45,33 @@ class RegisterView(View):
         # TODO 待增加
 
         user = User.objects.create_user(username=username, password=password, mobile=mobile)
-        return http.HttpResponse('注册成功')
+        # 登入用户，实现状态保持
+        login(request, user)
+        # 响应注册结果
+        return redirect(reverse('contents:index'))
 
 
+class UsernameCountView(View):
+    """判断用户名是否重复注册"""
+
+    def get(self, request, username):
+        """
+        :param request: 请求对象
+        :param username: 用户名
+        :return: JSON
+        """
+        count = User.objects.filter(username=username).count()
+        return http.JsonResponse({'count': count})
+
+
+class MobileCountView(View):
+    """判断手机号是否重复注册"""
+
+    def get(self, request, mobile):
+        """
+        :param request: 请求对象
+        :param mobile: 手机号
+        :return: JSON
+        """
+        count = User.objects.filter(mobile=mobile).count()
+        return http.JsonResponse({'count': count})
