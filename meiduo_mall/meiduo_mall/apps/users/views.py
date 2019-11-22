@@ -7,6 +7,7 @@ from django.contrib.auth import login, authenticate, logout
 from django_redis import get_redis_connection
 from django.db.models import Q
 from django.conf import settings
+from django.contrib.auth.mixins import LoginRequiredMixin
 
 
 class RegisterView(View):
@@ -149,11 +150,18 @@ class LogoutView(View):
         # 3. 重定向到login
         return response
 
+# 方案一：
+# class InfoView(View):
+#     """用户中心"""
+#     def get(self, request):
+#         # if isinstance(request.user, User):  # 判断request.user属性值是不是User类型或子类创建出来的实例对象
+#         if request.user.is_authenticated:  # 判断用户登录
+#             return render(request, 'user_center_info.html')
+#         else:
+#             return redirect('/login/?next=/info/')
+
+# 优化方案
 class InfoView(View):
     """用户中心"""
     def get(self, request):
-        # if isinstance(request.user, User):  # 判断request.user属性值是不是User类型或子类创建出来的实例对象
-        if request.user.is_authenticated:  # 判断用户登录
-            return render(request, 'user_center_info.html')
-        else:
-            return redirect('/login/?next=/info/')
+        return render(request, 'user_center_info.html')

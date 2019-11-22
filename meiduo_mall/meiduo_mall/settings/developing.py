@@ -201,3 +201,6 @@ LOGGING = {
 }
 
 AUTH_USER_MODEL = 'users.User'
+
+# 修改登录路由
+LOGIN_URL = '/login/'
