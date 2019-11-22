@@ -3,7 +3,10 @@ from django.views import View
 from django import http
 import re
 from .models import *
-from django.contrib.auth import login
+from django.contrib.auth import login, authenticate, logout
+from django_redis import get_redis_connection
+from django.db.models import Q
+from django.conf import settings
 
 
 class RegisterView(View):
@@ -42,13 +45,28 @@ class RegisterView(View):
         if allow != 'on':
             return http.HttpResponseForbidden('请勾选用户协议')
 
-        # TODO 待增加
+        # 短信验证码的验证
+        # 创建redis连接
+        redis_conn = get_redis_connection('verify_codes')
+        # 获取redis的当前手机号对应的短信验证码
+        sms_code_server = redis_conn.get('sms_%s' % mobile)
+        # 将获取出来的短信验证码从redis删除(让短信验证码是一次性)
+        redis_conn.delete('sms_%s' % mobile)
+        # 判断短信验证码是否过期
+        if sms_code_server is None:
+            return render(request, 'register.html', {'register_errmsg': '短信验证码已过期'})
+        # 判断用户填写短信验证码是否正确
+        if sms_code != sms_code_server.decode():
+            return render(request, 'register.html', {'register_errmsg': '短信验证码填写错误'})
 
+        # 3.新增用户
         user = User.objects.create_user(username=username, password=password, mobile=mobile)
         # 登入用户，实现状态保持
         login(request, user)
         # 响应注册结果
-        return redirect(reverse('contents:index'))
+        response = redirect('/')
+        response.set_cookie('username', user.username, max_age=settings.SESSION_COOKIE_AGE)
+        return response
 
 
 class UsernameCountView(View):
@@ -75,3 +93,58 @@ class MobileCountView(View):
         """
         count = User.objects.filter(mobile=mobile).count()
         return http.JsonResponse({'count': count})
+
+
+class LoginView(View):
+    """用户登录"""
+
+    def get(self, request):
+        return render(request, 'login.html')
+
+    def post(self, request):
+        """用户登录"""
+        # 1. 接收
+        query_dict = request.POST
+        username = query_dict.get('username')
+        password = query_dict.get('password')
+        remembered = query_dict.get('remembered')
+        # 2. 校验
+        if all([username, password]) is False:
+            return http.HttpResponseForbidden('缺少必传参数')
+
+        # 3. 判断用户名及密码是否正确
+        qs = User.objects.filter(Q(username=username) | Q(mobile=username))
+        if qs.exists():
+            user = qs[0]
+            if user.check_password(password) is False:
+                return http.HttpResponseForbidden('用户名或密码错误')
+        else:
+            return http.HttpResponseForbidden('用户名或密码错误')
+
+        # 用户认证,通过认证返回user 反之返回None
+        # user = authenticate(request, username=username, password=password)
+        # if user is None:
+        #     return http.HttpResponseForbidden('用户名或密码错误')
+
+        # 4. 状态保持
+        login(request, user)
+        if remembered is None:
+            request.session.set_expiry(0)
+        # 5. 重定向
+        response = redirect('/')
+        response.set_cookie('username', user.username,
+                            max_age=settings.SESSION_COOKIE_AGE if remembered == 'on' else None)
+        return response
+
+
+class LogoutView(View):
+    """退出登录"""
+
+    def get(self, request):
+        # 1. 清除状态操持
+        logout(request)
+        # 2. 删除cookie中的username
+        response = redirect('/login/')
+        response.delete_cookie('username')
+        # 3. 重定向到login
+        return response
