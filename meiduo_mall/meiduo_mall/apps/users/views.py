@@ -131,7 +131,7 @@ class LoginView(View):
         if remembered is None:
             request.session.set_expiry(0)
         # 5. 重定向
-        response = redirect('/')
+        response = redirect(request.GET.get('next') or '/')
         response.set_cookie('username', user.username,
                             max_age=settings.SESSION_COOKIE_AGE if remembered == 'on' else None)
         return response
@@ -148,3 +148,12 @@ class LogoutView(View):
         response.delete_cookie('username')
         # 3. 重定向到login
         return response
+
+class InfoView(View):
+    """用户中心"""
+    def get(self, request):
+        # if isinstance(request.user, User):  # 判断request.user属性值是不是User类型或子类创建出来的实例对象
+        if request.user.is_authenticated:  # 判断用户登录
+            return render(request, 'user_center_info.html')
+        else:
+            return redirect('/login/?next=/info/')
