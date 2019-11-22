@@ -150,6 +150,7 @@ class LogoutView(View):
         # 3. 重定向到login
         return response
 
+
 # 方案一：
 # class InfoView(View):
 #     """用户中心"""
@@ -161,7 +162,8 @@ class LogoutView(View):
 #             return redirect('/login/?next=/info/')
 
 # 优化方案
-class InfoView(View):
+class InfoView(LoginRequiredMixin, View):
     """用户中心"""
+
     def get(self, request):
         return render(request, 'user_center_info.html')
