@@ -2,6 +2,7 @@ from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, BadData
 from django.conf import settings
 
 
+
 def generate_open_id_signature(openid):
     """
     对原始openid进行加密

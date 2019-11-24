@@ -12,6 +12,8 @@ import json
 from .models import *
 from meiduo_mall.utils.views import LoginRequiredView
 from meiduo_mall.utils.response_code import RETCODE
+from celery_tasks.email.tasks import send_verify_url
+from .utils import generate_email_verify_url, get_user_token
 
 
 class RegisterView(View):
@@ -175,6 +177,7 @@ class InfoView(LoginRequiredMixin, View):
 
 class EmailView(LoginRequiredView):
     """设置邮箱"""
+
     def put(self, request):
         # 1.接收json数据
         json_str_bytes = request.body
@@ -195,7 +198,31 @@ class EmailView(LoginRequiredView):
 
         # 给用户的邮箱发送激活邮件
 
-
-
+        from django.core.mail import send_mail
+        # send_mail(subject='主题/标题', message='普通邮件内容', from_email='发件人邮箱', recipient_list=['收件人邮箱列表'],
+        # html_message='超文本邮箱内容')
+        # send_mail('hello', '', '美多商城<itcast99@163.com>', [email],
+        #           html_message='<a href="http://www.baidu.com">百度一下</a>')
+        verify_url = generate_email_verify_url(user)
+        send_verify_url.delay(email, verify_url)
         # 4.响应
-        return http.JsonResponse({'code':RETCODE.OK, 'errmsg': 'OK'})
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK'})
+
+
+class EmailVerifyView(View):
+    """激活邮箱"""
+
+    def get(self, request):
+        # 1.接收查询参数token
+        token = request.GET.get('token')
+        # 2. 对token进行解密
+        user = get_user_token(token)
+        # 判断是否拿到user,如果有
+        if user is None:
+            return http.HttpResponseForbidden('邮箱激活失败')
+        # 将user的email_active改国True 再save
+        user.email_active = True
+        user.save()
+        # 响应
+        # return render(request, 'user_center_info.html')
+        return redirect('/info/')
