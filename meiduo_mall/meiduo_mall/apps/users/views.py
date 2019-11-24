@@ -1,13 +1,17 @@
-from django.shortcuts import render, redirect, reverse
+from django.shortcuts import render, redirect
 from django.views import View
 from django import http
 import re
-from .models import *
 from django.contrib.auth import login, authenticate, logout
 from django_redis import get_redis_connection
 from django.db.models import Q
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
+import json
+
+from .models import *
+from meiduo_mall.utils.views import LoginRequiredView
+from meiduo_mall.utils.response_code import RETCODE
 
 
 class RegisterView(View):
@@ -167,3 +171,31 @@ class InfoView(LoginRequiredMixin, View):
 
     def get(self, request):
         return render(request, 'user_center_info.html')
+
+
+class EmailView(LoginRequiredView):
+    """设置邮箱"""
+    def put(self, request):
+        # 1.接收json数据
+        json_str_bytes = request.body
+        # 解码byte数据
+        json_str = json_str_bytes.decode()
+        # 转成字典
+        json_dict = json.loads(json_str)
+        # 得到字典中的邮箱
+        email = json_dict.get('email')
+        # 2.校验
+        if not re.match(r'^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$', email):
+            return http.HttpResponseForbidden('邮箱格式有误')
+        # 3. 修改user的email字段，然后保存（save()）
+        user = request.user
+        if user.email == '':  # 数据库里用户邮箱为空时
+            user.email = email
+            user.save()
+
+        # 给用户的邮箱发送激活邮件
+
+
+
+        # 4.响应
+        return http.JsonResponse({'code':RETCODE.OK, 'errmsg': 'OK'})
