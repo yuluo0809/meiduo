@@ -81,7 +81,8 @@ class SMSCodeView(View):
         # CCP().send_template_sms('接收收短信手机号', ['验证码', '提示用户的过期时间:单秒分钟'], 1)
         # 3.1 发送短信
         # CCP().send_template_sms(mobile, [sms_code, 5], 1)
-        send_sms_code.delay(mobile, sms_code)  # 触发异步任务
+        # send_sms_code.delay(mobile, sms_code)  # 触发异步任务
+        send_sms_code(mobile, sms_code)
         # 3.2 存储短信验证码到redis,以备注册时验证短信验证码
         pl.setex('sms_%s' % mobile, constants.SMS_CODE_EXPIRE, sms_code)
 

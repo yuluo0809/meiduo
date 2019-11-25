@@ -3,7 +3,7 @@ from celery import Celery
 import os
 # celery模块中尽可能不要导入celery模块以外的其它模块,可能会出现未知bug
 # 解决: 1.要么变为一家 2. 加上下面这行代码再重新启动celery
-os.environ.setdefault("DJANGO_SETTINGS_MODULE", "meiduo_mall.settings")
+os.environ.setdefault("DJANGO_SETTINGS_MODULE", "meiduo_mall.settings.developing")
 
 # 1. 创建celery客户端对象
 celery_app = Celery('meiduo')

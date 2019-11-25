@@ -191,8 +191,8 @@ class EmailView(LoginRequiredView):
         if not re.match(r'^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$', email):
             return http.HttpResponseForbidden('邮箱格式有误')
         # 3. 修改user的email字段，然后保存（save()）
-        user = request.user
-        if user.email == '':  # 数据库里用户邮箱为空时
+        user = request.user     # request 中的用户信息哪里来的？
+        if user.email == '':  # 数据库里用户邮箱为空时,再设置。
             user.email = email
             user.save()
 
@@ -204,7 +204,8 @@ class EmailView(LoginRequiredView):
         # send_mail('hello', '', '美多商城<itcast99@163.com>', [email],
         #           html_message='<a href="http://www.baidu.com">百度一下</a>')
         verify_url = generate_email_verify_url(user)
-        send_verify_url.delay(email, verify_url)
+        # send_verify_url.delay(email, verify_url)
+        send_verify_url(email, verify_url)
         # 4.响应
         return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK'})
 
@@ -226,3 +227,9 @@ class EmailVerifyView(View):
         # 响应
         # return render(request, 'user_center_info.html')
         return redirect('/info/')
+
+
+class AddressView(View):
+    """用户收货地址"""
+    def get(self, request):
+        return render(request, 'user_center_site.html')
