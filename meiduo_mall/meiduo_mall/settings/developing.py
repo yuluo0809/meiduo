@@ -42,6 +42,7 @@ INSTALLED_APPS = [
     'django.contrib.staticfiles',
     'users.apps.UsersConfig',
     'oauth.apps.OauthConfig',
+    'areas.apps.AreasConfig',  # 省市区应用
 
 ]
 
