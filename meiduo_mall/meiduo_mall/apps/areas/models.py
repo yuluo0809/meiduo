@@ -16,3 +16,20 @@ class Area(models.Model):
 
     def __str__(self):
         return self.name
+
+
+# 查询所有省的数据
+# Area.objects.filter(parent__isnull=True)
+# Area.objects.filter(parent=None)
+# Area.objects.get(id=130000)  # 河北省
+#
+# # 查询指定省下面的所有市
+# Area.objects.filter(parent_id=130000)  # 查询指定省下面的所有省 (parent_id=指定省的id)
+# Area.objects.get(id=130100)  # 石家庄市
+# hbs.sbus.all()
+# sjz.parent
+#
+# # 查询指定市下面的所有区县
+# Area.objects.filter(parent_id=130100)  # 查询指定市下面的所有区县(parent_id=指定市的id)
+# baq.parent
+# szs.subs.all()g
