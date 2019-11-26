@@ -8,12 +8,16 @@ from django.db.models import Q
 from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 import json
+from django.db.utils import DataError, DatabaseError
 
 from .models import *
 from meiduo_mall.utils.views import LoginRequiredView
 from meiduo_mall.utils.response_code import RETCODE
 from celery_tasks.email.tasks import send_verify_url
 from .utils import generate_email_verify_url, get_user_token
+import logging
+
+logger = logging.getLogger('django')
 
 
 class RegisterView(View):
@@ -191,7 +195,7 @@ class EmailView(LoginRequiredView):
         if not re.match(r'^[a-zA-Z0-9_-]+@[a-zA-Z0-9_-]+(\.[a-zA-Z0-9_-]+)+$', email):
             return http.HttpResponseForbidden('邮箱格式有误')
         # 3. 修改user的email字段，然后保存（save()）
-        user = request.user     # request 中的用户信息哪里来的？
+        user = request.user  # request 中的用户信息哪里来的？
         if user.email == '':  # 数据库里用户邮箱为空时,再设置。
             user.email = email
             user.save()
@@ -229,7 +233,106 @@ class EmailVerifyView(View):
         return redirect('/info/')
 
 
-class AddressView(View):
+class AddressView(LoginRequiredView):
     """用户收货地址"""
+
     def get(self, request):
-        return render(request, 'user_center_site.html')
+        user = request.user
+        # 查询当前用户未逻辑删除的所有收货地址
+        address_qs = Address.objects.filter(user=user, is_deleted=False)
+
+        # 模型转字典并包装到列表中
+        address_list = []
+        for address in address_qs:
+            address_list.append({
+                'id': address.id,
+                'title': address.title,
+                'receiver': address.receiver,
+                'province_id': address.province_id,
+                'province': address.province.name,
+                'city_id': address.city_id,
+                'city': address.city.name,
+                'district_id': address.district_id,
+                'district': address.district.name,
+                'place': address.place,
+                'mobile': address.mobile,
+                'tel': address.tel,
+                'email': address.email,
+            })
+
+        context = {
+            'addresses': address_list,  # 用户的所有收货地址
+            'default_address_id': user.default_address_id
+        }
+        return render(request, 'user_center_site.html', context)
+
+
+class AddressCreateView(LoginRequiredView):
+    """新增收货地址"""
+
+    def post(self, request):
+        # 1. 接收数据
+        json_dict = json.loads(request.body.decode())
+        title = json_dict.get('title')
+        receiver = json_dict.get('receiver')
+        province_id = json_dict.get('province_id')
+        city_id = json_dict.get('city_id')
+        district_id = json_dict.get('district_id')
+        place = json_dict.get('place')
+        mobile = json_dict.get('mobile')
+        tel = json_dict.pop('tel')
+        email = json_dict.pop('email')
+
+        # 2. 校验
+        if all(json_dict.values()) is False:
+            return http.HttpResponseForbidden('缺少必传参数')
+        if not re.match(r'^1[3-9]\d{9}$', mobile):
+            return http.HttpResponseForbidden('手机格式有误')
+        if tel:
+            if not re.match(r'^(0[0-9]{2,3}-)?([2-9][0-9]{6,7})+(-[0-9]{1,4})?$', tel):
+                return http.HttpResponseForbidden('参数tel有误')
+        if email:
+            if not re.match(r'^[a-z0-9][\w\-]*@[a-z0-9\-]+(\.[a-z]{2,5}){1,2}$', email):
+                return http.HttpResponseForbidden('参数email有误')
+        # 获取user
+        user = request.user
+        # 3. 新增收货地址
+        address = Address()
+        address.user = user
+        address.title = title
+        address.receiver = receiver
+        address.province_id = province_id
+        address.city_id = city_id
+        address.district_id = district_id
+        address.place = place
+        address.mobile = mobile
+        address.tel = tel
+        address.email = email
+        try:
+            address.save()
+        except DatabaseError as e:
+            logger.error(e)
+            return http.HttpResponseForbidden('数据有误')
+
+        # 模型转字典
+        address_dict = {
+            'id': address.id,
+            'title': address.title,
+            'receiver': address.receiver,
+            'province_id': address.province_id,
+            'province': address.province.name,
+            'city_id': address.city_id,
+            'city': address.city.name,
+            'district_id': address.district_id,
+            'district': address.district.name,
+            'place': address.place,
+            'mobile': address.mobile,
+            'tel': address.tel,
+            'email': address.email,
+        }
+        # 如果用户还没有默认地址,就把当前新增的地址设置为它的默认地址
+        if user.default_address is None:
+            user.default_address = address
+            user.save()
+        # 4. 响应
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK', 'address': address_dict})
