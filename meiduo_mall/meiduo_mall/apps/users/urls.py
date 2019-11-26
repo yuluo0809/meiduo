@@ -26,7 +26,11 @@ urlpatterns = [
     # 删除或修改收货地址,做一个正则匹配，命名为addresses_id.
     url(r'^addresses/(?P<addresses_id>\d+)/$', views.AddressDeleteAndUpdateView.as_view()),
     # 设置默认地址
-    url(r'^addresses/(?P<addresses_id>\d+)/default/$', views.SetDefaultAddress.as_view()),
+    url(r'^addresses/(?P<addresses_id>\d+)/default/$', views.SetDefaultAddressView.as_view()),
+    # 修改地址标题
+    url(r'^addresses/(?P<addresses_id>\d+)/title/$', views.ChangeAddressTitleView.as_view()),
+    # 修改密码
+    url(r'^password/$', views.ChangePasswordView.as_view()),
 ]
 
 

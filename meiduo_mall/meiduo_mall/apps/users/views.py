@@ -361,8 +361,8 @@ class AddressDeleteAndUpdateView(LoginRequiredView):
         district_id = json_dict.get('district_id')
         place = json_dict.get('place')
         mobile = json_dict.get('mobile')
-        tel = json_dict.get('tel')
-        email = json_dict.get('email')
+        tel = json_dict.pop('tel')
+        email = json_dict.pop('email')
 
         # 2. 校验
         if all([title, receiver, province_id, city_id, district_id, place, mobile]) is False:
@@ -385,8 +385,8 @@ class AddressDeleteAndUpdateView(LoginRequiredView):
         new_address.district_id = district_id
         new_address.place = place
         new_address.mobile = mobile
-        new_address.tel = tel or ''
-        new_address.email = email or ''
+        new_address.tel = tel
+        new_address.email = email
         try:
             new_address.save()
         except DatabaseError as e:
@@ -412,12 +412,54 @@ class AddressDeleteAndUpdateView(LoginRequiredView):
         return http.JsonResponse({'code': RETCODE.OK, 'errmsg': '修改成功', 'address': new_address_dict})
 
 
-class SetDefaultAddress(LoginRequiredView):
+# 设置默认地址
+class SetDefaultAddressView(LoginRequiredView):
     def put(self, request, addresses_id):
-
         user = request.user
-        address = Address.objects.get(id=addresses_id)
+        address = Address.objects.get(user=user, id=addresses_id)
         user.default_address = address
         user.save()
 
         return http.JsonResponse({'code': RETCODE.OK, 'errmsg': '设置成功'})
+
+
+# 修改地址标题
+class ChangeAddressTitleView(LoginRequiredView):
+    def put(self, request, addresses_id):
+        json_dict = json.loads(request.body.decode())
+        title = json_dict.get('title')
+        user = request.user
+        address = Address.objects.get(user=user, id=addresses_id)
+        address.title = title
+        address.save()
+
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': '修改成功'})
+
+
+# 修改密码
+class ChangePasswordView(LoginRequiredView):
+    def get(self, request):
+        """进入密码修改界面"""
+        return render(request, 'user_center_pass.html')
+
+    def post(self, request):
+        query_dict = request.POST
+        password = query_dict.get('old_pwd')
+        new_password = query_dict.get('new_pwd')
+        new_password2 = query_dict.get('new_cpwd')
+
+        user = request.user
+
+        if user.check_password(password) is False:
+            return render(request, 'user_center_pass.html', {'origin_pwd_errmsg': '原密码输入不正确'})
+        if not re.match(r'^[0-9A-Za-z]{8,20}$', password):
+            return http.HttpResponseForbidden('请输入8-20个字符的密码~~!')
+        if new_password != new_password2:
+            return http.HttpResponseForbidden('两次密码输入不一致~~!')
+
+        user.set_password(new_password)
+        user.save()
+        logout(request)
+        response = redirect('/login/')
+        response.delete_cookie('username')
+        return response
