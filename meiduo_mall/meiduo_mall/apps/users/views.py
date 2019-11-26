@@ -336,3 +336,88 @@ class AddressCreateView(LoginRequiredView):
             user.save()
         # 4. 响应
         return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK', 'address': address_dict})
+
+
+class AddressDeleteAndUpdateView(LoginRequiredView):
+    """删除和修改收货地址"""
+
+    # 处理前端发起的delete请求
+    def delete(self, request, addresses_id):
+        user = request.user
+
+        address = Address.objects.get(user=user, id=addresses_id)
+        address.is_deleted = True
+        address.save()
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': '删除成功'})
+
+    # 处理前端发起的put请求
+    def put(self, request, addresses_id):
+        # 1. 接收数据
+        json_dict = json.loads(request.body.decode())
+        title = json_dict.get('title')
+        receiver = json_dict.get('receiver')
+        province_id = json_dict.get('province_id')
+        city_id = json_dict.get('city_id')
+        district_id = json_dict.get('district_id')
+        place = json_dict.get('place')
+        mobile = json_dict.get('mobile')
+        tel = json_dict.get('tel')
+        email = json_dict.get('email')
+
+        # 2. 校验
+        if all([title, receiver, province_id, city_id, district_id, place, mobile]) is False:
+            return http.HttpResponseForbidden('缺少必传参数')
+        if not re.match(r'^1[3-9]\d{9}$', mobile):
+            return http.HttpResponseForbidden('手机格式有误')
+        if tel:
+            if not re.match(r'^(0[0-9]{2,3}-)?([2-9][0-9]{6,7})+(-[0-9]{1,4})?$', tel):
+                return http.HttpResponseForbidden('参数tel有误')
+        if email:
+            if not re.match(r'^[a-z0-9][\w\-]*@[a-z0-9\-]+(\.[a-z]{2,5}){1,2}$', email):
+                return http.HttpResponseForbidden('参数email有误')
+
+        # 3. 更新数据
+        new_address = Address.objects.get(id=addresses_id)
+        new_address.title = title
+        new_address.receiver = receiver
+        new_address.province_id = province_id
+        new_address.city_id = city_id
+        new_address.district_id = district_id
+        new_address.place = place
+        new_address.mobile = mobile
+        new_address.tel = tel or ''
+        new_address.email = email or ''
+        try:
+            new_address.save()
+        except DatabaseError as e:
+            logger.error(e)
+            return http.HttpResponseForbidden('数据有误')
+
+        # 模型转字典
+        new_address_dict = {
+            'id': addresses_id,
+            'title': new_address.title,
+            'receiver': new_address.receiver,
+            'province_id': new_address.province_id,
+            'province': new_address.province.name,
+            'city_id': new_address.city_id,
+            'city': new_address.city.name,
+            'district_id': new_address.district_id,
+            'district': new_address.district.name,
+            'place': new_address.place,
+            'mobile': new_address.mobile,
+            'tel': new_address.tel,
+            'email': new_address.email,
+        }
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': '修改成功', 'address': new_address_dict})
+
+
+class SetDefaultAddress(LoginRequiredView):
+    def put(self, request, addresses_id):
+
+        user = request.user
+        address = Address.objects.get(id=addresses_id)
+        user.default_address = address
+        user.save()
+
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': '设置成功'})
