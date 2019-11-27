@@ -172,6 +172,7 @@ class LogoutView(View):
 #             return redirect('/login/?next=/info/')
 
 # 优化方案
+
 class InfoView(LoginRequiredMixin, View):
     """用户中心"""
 

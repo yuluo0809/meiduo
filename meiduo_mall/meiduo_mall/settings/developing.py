@@ -43,6 +43,8 @@ INSTALLED_APPS = [
     'users.apps.UsersConfig',
     'oauth.apps.OauthConfig',
     'areas.apps.AreasConfig',  # 省市区应用
+    'contents.apps.ContentsConfig',  # 首页应用
+    'goods.apps.GoodsConfig',  # 商品应用
 
 ]
 

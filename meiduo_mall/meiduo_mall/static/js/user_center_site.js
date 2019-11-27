@@ -194,7 +194,8 @@ var vm = new Vue({
                 alert('信息填写有误！');
             } else {
                 // 收货人默认就是收货地址标题
-                this.form_address.title = this.form_address.receiver;
+                if (this.form_address.title === ''){this.form_address.title = this.form_address.receiver;}
+                // this.form_address.title = this.form_address.receiver;
                 // 注意：0 == '';返回true; 0 === '';返回false;
                 if (this.editing_address_index === '') {
                     // 新增地址
