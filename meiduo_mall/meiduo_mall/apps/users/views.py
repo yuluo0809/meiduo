@@ -17,6 +17,8 @@ from celery_tasks.email.tasks import send_verify_url
 from .utils import generate_email_verify_url, get_user_token
 import logging
 from goods.models import SKU
+from carts.utils import merge_cart_cookie_to_redis
+
 
 logger = logging.getLogger('django')
 
@@ -146,6 +148,8 @@ class LoginView(View):
         response = redirect(request.GET.get('next') or '/')
         response.set_cookie('username', user.username,
                             max_age=settings.SESSION_COOKIE_AGE if remembered == 'on' else None)
+        # 登录成功时,合并购物车
+        merge_cart_cookie_to_redis(request, response)
         return response
 
 
@@ -501,3 +505,31 @@ class UserBrowseHistory(View):
         pl.execute()  # 执行管道
         # 响应
         return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK'})
+
+    def get(self, request):
+        # 获取当前请求user
+        user = request.user
+        # 如果当前是未登录用户,什么也不做,直接响应
+        if not user.is_authenticated:
+            return http.JsonResponse({'code': RETCODE.SESSIONERR, 'errmsg': '用户未登录'})
+        # 连接redis
+        redis_conn = get_redis_connection('history')
+        # 获取当前登录用户商品浏览记录数据sku_id
+        sku_ids = redis_conn.lrange('history_%s' % user.id, 0, -1)
+        # 定义列表用来保存所有sku字典
+        sku_list = []
+        # 通过sku_id查询sku模型
+        # sku_qs = SKU.objects.filter(id__in=sku_ids)
+        for sku_id in sku_ids:
+            sku = SKU.objects.get(id=sku_id)
+            # 模型转字典
+            sku_list.append({
+                'id': sku.id,
+                'name': sku.name,
+                'price': sku.price,
+                'default_image_url': sku.default_image.url,
+                # 'url': '/detail/' + str(sku.id) + '/'
+            })
+
+        # 响应
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK', 'skus': sku_list})

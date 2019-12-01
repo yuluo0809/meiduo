@@ -11,6 +11,7 @@ from meiduo_mall.utils.response_code import RETCODE
 from .models import OAuthQQUser
 from users.models import User
 from .utils import generate_open_id_signature, check_open_id
+from carts.utils import merge_cart_cookie_to_redis
 
 
 class QQAuthURLView(View):
@@ -63,6 +64,9 @@ class QQAuthView(View):
             # 向cookie中存储username
             response = redirect(request.GET.get('state') or '/')
             response.set_cookie('username', user.username, max_age=settings.SESSION_COOKIE_AGE)
+            # 合并购物车
+            merge_cart_cookie_to_redis(request, response)
+
             # 重定向到来源
             return response
         except OAuthQQUser.DoesNotExist:
@@ -110,7 +114,7 @@ class QQAuthView(View):
         # 对openid进行解密
         openid = check_open_id(openid)
         if openid is None:
-            return http.HttpResponseForbidden('openid无效')   # 可以自己制作一个页面专门处理该事件
+            return http.HttpResponseForbidden('openid无效')  # 可以自己制作一个页面专门处理该事件
         # 6.openid绑定美多新老用户
         OAuthQQUser.objects.create(
             openid=openid,
@@ -122,5 +126,9 @@ class QQAuthView(View):
         # 8. 存储cookie中的username
         response = redirect(request.GET.get('state') or '/')
         response.set_cookie('username', user.username, max_age=settings.SESSION_COOKIE_AGE)
+
+        # 合并购物车
+        merge_cart_cookie_to_redis(request, response)
+
         # 9. 重定向到来源
         return response
