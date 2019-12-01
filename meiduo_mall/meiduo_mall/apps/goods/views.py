@@ -10,11 +10,12 @@ from .utils import get_breadcrumb
 import logging
 from meiduo_mall.utils.response_code import RETCODE
 
-
 logger = logging.getLogger('django')
+
 
 class ListView(View):
     """商品列表界面"""
+
     def get(self, request, category_id, page_num):
 
         try:
@@ -71,9 +72,9 @@ class ListView(View):
         return render(request, 'list.html', context)
 
 
-
 class HotGoodsView(View):
     """热销排行"""
+
     def get(self, request, category_id):
 
         # 1. 校验
@@ -99,6 +100,7 @@ class HotGoodsView(View):
 
 class DetailView(View):
     """商品详情界面"""
+
     def get(self, request, sku_id):
         try:
             sku = SKU.objects.get(id=sku_id)
@@ -157,8 +159,8 @@ class DetailView(View):
 
 class GoodsVisitView(View):
     """统计三级类别每日访问类"""
-    def post(self, request, category_id):
 
+    def post(self, request, category_id):
 
         # 1. 校验
         try:
