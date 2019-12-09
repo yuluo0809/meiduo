@@ -3,22 +3,28 @@ from django.views import View
 from django import http
 from django_redis import get_redis_connection
 from random import randint
+from django.db.models import Q
+from django.conf import settings
 
-
+from itsdangerous import TimedJSONWebSignatureSerializer as Serializer, BadData
 
 from meiduo_mall.utils.response_code import RETCODE, err_msg
 from meiduo_mall.libs.captcha.captcha import captcha
 # from meiduo_mall.libs.yuntongxun.sms import CCP
+from users.models import User
 from . import constants
 from celery_tasks.sms.tasks import send_sms_code
-
+from .utils import get_account_token
 
 import logging
+
 # 创建日志输出器对象
 logger = logging.getLogger('django')
 
+
 class ImageCodeView(View):
     """图形验证码"""
+
     def get(self, request, uuid):
         """
         :param request:
@@ -35,7 +41,6 @@ class ImageCodeView(View):
         redis_conn.setex(uuid, 300, text)
         # 4. 响应图片数据
         return http.HttpResponse(image, content_type='image/png')
-
 
 
 class SMSCodeView(View):
@@ -94,4 +99,75 @@ class SMSCodeView(View):
         return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK'})
 
 
+# 验证账户
+class VerifyAccountsView(View):
+    def get(self, request, accounts):
+        image_code_client = request.GET.get('text')
+        uuid = request.GET.get('image_code_id')
+        if all([accounts, image_code_client, uuid]) is False:
+            return http.HttpResponseForbidden('缺少必传参数')
+        qs = User.objects.filter(Q(username=accounts) | Q(mobile=accounts))
+        if qs.exists():
+            user = qs[0]
+        else:
+            return http.HttpResponseForbidden('用户名输入不正确')
 
+        redis_conn = get_redis_connection('verify_codes')
+        image_code_server_bytes = redis_conn.get(uuid)
+        # "删除uuid，保证一次有效性"
+        redis_conn.delete(uuid)
+        if image_code_server_bytes is None:
+            return http.HttpResponseForbidden('图形验证码已过期')
+        image_code_server = image_code_server_bytes.decode()
+        if image_code_client.lower() != image_code_server.lower():
+            return http.HttpResponseForbidden('图形验证码填写错误')
+        data = {'user_id': user.id, 'mobile': user.mobile}
+        serializer = Serializer(secret_key=settings.SECRET_KEY, expires_in=3600)
+        access_token = serializer.dumps(data).decode()
+
+        mobile = str(user.mobile)
+        mobile = mobile[:3] + '****' + mobile[7:]
+        return http.JsonResponse({'mobile': mobile, 'access_token': access_token})
+
+
+# 发送短信
+class AccountSMSView(View):
+    def get(self, request):
+        token = request.GET.get('access_token')
+        data = get_account_token(token)
+        mobile = data['mobile']
+        # 0. 创建redis连接对象
+        redis_conn = get_redis_connection('verify_codes')
+        # 先尝试获取redis中此手机号60s内是否发送短信标识
+        send_flag = redis_conn.get('send_flag_%s' % mobile)
+        # 判断是否有标识,如果有提前响应
+        if send_flag:
+            return http.JsonResponse({'code': RETCODE.THROTTLINGERR, 'errmsg': '频繁发送短信'})
+
+        sms_code = '%06d' % randint(0, 999999)
+        logger.info(sms_code)
+        send_sms_code(mobile, sms_code)
+        redis_conn.setex('sms_%s' % mobile, constants.SMS_CODE_EXPIRE, sms_code)
+        redis_conn.setex('send_flag_%s' % mobile, 60, 1)
+        return http.JsonResponse({'code': RETCODE.OK, 'errmsg': 'OK'})
+
+
+# 验证短信
+class VerifySMSCodeView(View):
+
+    def get(self, request, accounts):
+        user = User.objects.get(Q(username=accounts) | Q(mobile=accounts))
+        mobile = user.mobile
+        sms_code_client = request.GET.get('sms_code')
+        # 创建redis连接
+        redis_conn = get_redis_connection('verify_codes')
+        # 获取redis的当前手机号对应的短信验证码
+        sms_code_server = redis_conn.get('sms_%s' % mobile)
+        if sms_code_server is None:
+            return render(request, 'find_password.html', {'find_password_errmsg': '短信验证码已过期'})
+        if sms_code_client != sms_code_server.decode():
+            return render(request, 'find_password.html', {'find_password_errmsg': '短信验证码填写错误'})
+        data = {'user_id': user.id, 'mobile': user.mobile}
+        serializer = Serializer(secret_key=settings.SECRET_KEY, expires_in=3600)
+        access_token = serializer.dumps(data).decode()
+        return http.JsonResponse({'user_id': user.id, 'access_token': access_token})

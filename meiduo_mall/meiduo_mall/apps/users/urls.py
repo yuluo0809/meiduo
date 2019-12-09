@@ -33,6 +33,11 @@ urlpatterns = [
     url(r'^password/$', views.ChangePasswordView.as_view()),
     # 保存商品浏览记录
     url(r'^browse_histories/$', views.UserBrowseHistory.as_view()),
+    # 找回密码
+    url(r'^find_password/$', views.GetBackPasswordView.as_view()),
+    # 设置新密码
+    url(r'^users/(?P<pk>\d+)/password/$', views.SetNewPasswordView.as_view()),
+
 ]
 
 

@@ -9,7 +9,9 @@ from django.conf import settings
 from django.contrib.auth.mixins import LoginRequiredMixin
 import json
 from django.db.utils import DataError, DatabaseError
+# from django.views.decorators.csrf import csrf_exempt
 
+from verifications.utils import get_account_token
 from .models import *
 from meiduo_mall.utils.views import LoginRequiredView
 from meiduo_mall.utils.response_code import RETCODE
@@ -18,7 +20,6 @@ from .utils import generate_email_verify_url, get_user_token
 import logging
 from goods.models import SKU
 from carts.utils import merge_cart_cookie_to_redis
-
 
 logger = logging.getLogger('django')
 
@@ -469,6 +470,38 @@ class ChangePasswordView(LoginRequiredView):
         response = redirect('/login/')
         response.delete_cookie('username')
         return response
+
+
+# 找回密码
+class GetBackPasswordView(View):
+    def get(self, request):
+        return render(request, 'find_password.html')
+
+
+# 设置新密码
+
+class SetNewPasswordView(View):
+    # @csrf_exempt
+    def post(self, request, pk):
+        json_dict = json.loads(request.body.decode())
+        token = json_dict.get('access_token')
+        password = json_dict.get('password')
+        password2 = json_dict.get('password2')
+        if all(json_dict.values()) is False:
+            return http.HttpResponseForbidden('缺少必传参数')
+        data = get_account_token(token)
+        mobile = data['mobile']
+        user_id = data['user_id']
+        if user_id != int(pk):
+            return http.HttpResponseForbidden('请求错误')
+        if not re.match(r'^[0-9A-Za-z]{8,20}$', password):
+            return http.JsonResponse({'error': '请输入8-20个字符的密码'}, status=400)
+        if password != password2:
+            return http.JsonResponse({'error': '两次密码输入不一致'}, status=400)
+        user = User.objects.get(id=user_id, mobile=mobile)
+        user.set_password(password)
+        user.save()
+        return http.JsonResponse({'message': 'OK'})
 
 
 class UserBrowseHistory(View):

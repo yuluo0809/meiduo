@@ -223,7 +223,7 @@ var vm = new Vue({
                                 this.error_tel = true;
                             } else if (response.data.code == '5001') {
                                 this.error_email = true;
-                            } else { // 4002 4003 5000 (以提示框的形式出现)
+                            } else { // 4002 4003 5000 (以提示框的形式出现)c
                                 alert(response.data.errmsg);
                             }
                         })
