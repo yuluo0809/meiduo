@@ -16,6 +16,7 @@ import logging
 
 logger = logging.getLogger('django')
 
+
 class OrderSettlementView(LoginRequiredView):
     """结算订单"""
 
@@ -110,8 +111,8 @@ class OrderCommitView(LoginRequiredView):
                 # 将redis购物车数据过滤,只留下要购买商品id和count
                 carts = {}
                 for sku_id in selected:  # 查询sku模型
-                    carts[int(sku_id)] = int(redis_cart[sku_id])   # 判断库存,如果库存不足就下单失败
-                sku_ids = carts.keys()   # 修改sku 的库存和销量
+                    carts[int(sku_id)] = int(redis_cart[sku_id])  # 判断库存,如果库存不足就下单失败
+                sku_ids = carts.keys()  # 修改sku 的库存和销量
                 # 遍历购物车中被勾选的商品信息
                 for sku_id in sku_ids:
                     while True:
@@ -183,6 +184,7 @@ class OrderCommitView(LoginRequiredView):
 
 class OrderSuccessView(LoginRequiredView):
     """订单提交成功界面"""
+
     def get(self, request):
 
         query_dict = request.GET
@@ -191,7 +193,8 @@ class OrderSuccessView(LoginRequiredView):
         order_id = query_dict.get('order_id')
         pay_method = query_dict.get('pay_method')
         try:
-            OrderInfo.objects.get(order_id=order_id, pay_method=pay_method, total_amount=payment_amount, user=request.user)
+            OrderInfo.objects.get(order_id=order_id, pay_method=pay_method, total_amount=payment_amount,
+                                  user=request.user)
         except OrderInfo.DoesNotExist:
             return http.HttpResponseForbidden('请求信息有误')
 
@@ -201,42 +204,3 @@ class OrderSuccessView(LoginRequiredView):
             'pay_method': pay_method
         }
         return render(request, 'order_success.html', context)
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

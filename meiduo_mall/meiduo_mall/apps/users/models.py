@@ -15,7 +15,7 @@ class User(AbstractUser):
                                         on_delete=models.SET_NULL, verbose_name='默认地址')
 
     class Meta:
-        db_table = 'tb_users'
+        db_table = 'users_user'
         verbose_name = '用户'
         verbose_name_plural = verbose_name
 
@@ -39,7 +39,7 @@ class Address(BaseModel):
     is_deleted = models.BooleanField(default=False, verbose_name='逻辑删除')
 
     class Meta:
-        db_table = 'tb_address'
+        db_table = 'tb_addresses'
         verbose_name = '用户地址'
         verbose_name_plural = verbose_name
         ordering = ['-update_time']

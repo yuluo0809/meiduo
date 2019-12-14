@@ -277,4 +277,9 @@ REST_FRAMEWORK = {
 
 JWT_AUTH = {
     'JWT_EXPIRATION_DELTA': datetime.timedelta(days=1),
+    'JWT_RESPONSE_PAYLOAD_HANDLER': 'meiduo_mall.utils.custom_jwt_handler.jwt_response_payload_handler'
 }
+
+AUTHENTICATION_BACKENDS = [
+    'meiduo_mall.utils.authenticate.MeiduoModelBackend',
+]

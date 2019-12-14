@@ -22,7 +22,6 @@ class LoginSerializer(serializers.Serializer):
         payload = jwt_payload_handler(user)
         token = jwt_encode_handler(payload)
 
-
         return {
             'user': user,
             'token': token
